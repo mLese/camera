@@ -19,6 +19,7 @@ package com.example.android.camera2video
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.content.res.Configuration
 import android.graphics.Matrix
@@ -51,8 +52,13 @@ import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.MediaController
 import android.widget.Toast
 import android.widget.Toast.LENGTH_SHORT
+import com.arthenica.mobileffmpeg.Config
+import com.arthenica.mobileffmpeg.FFmpeg
+import com.arthenica.mobileffmpeg.MediaInformation
+import java.io.File
 import java.io.IOException
 import java.util.Collections
 import java.util.concurrent.Semaphore
@@ -204,7 +210,7 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
         videoButton = view.findViewById<Button>(R.id.video).also {
             it.setOnClickListener(this)
         }
-        view.findViewById<View>(R.id.info).setOnClickListener(this)
+        view.findViewById<View>(R.id.preview).setOnClickListener(this)
     }
 
     override fun onResume() {
@@ -231,14 +237,7 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
     override fun onClick(view: View) {
         when (view.id) {
             R.id.video -> if (isRecordingVideo) stopRecordingVideo() else startRecordingVideo()
-            R.id.info -> {
-                if (activity != null) {
-                    AlertDialog.Builder(activity)
-                            .setMessage(R.string.intro_message)
-                            .setPositiveButton(android.R.string.ok, null)
-                            .show()
-                }
-            }
+            R.id.preview -> if (!isRecordingVideo) showPreview()
         }
     }
 
@@ -489,17 +488,46 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
             setVideoSource(MediaRecorder.VideoSource.SURFACE)
             setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             setOutputFile(nextVideoAbsolutePath)
-            setVideoEncodingBitRate(10000000)
+            //setVideoEncodingBitRate(10000000) // 9mb/sec
             setVideoFrameRate(30)
+            setMaxDuration(20 * 1000)
             setVideoSize(videoSize.width, videoSize.height)
             setVideoEncoder(MediaRecorder.VideoEncoder.H264)
             setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
             prepare()
+            setOnInfoListener { mr, what, extra ->
+                if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) {
+                    Log.d("Leseloggin", "$what")
+                }
+            }
         }
     }
 
     private fun getVideoFilePath(context: Context?): String {
-        val filename = "${System.currentTimeMillis()}.mp4"
+        //val filename = "${System.currentTimeMillis()}.mp4"
+        val filename = "original.mp4"
+        val dir = context?.getExternalFilesDir(null)
+
+        return if (dir == null) {
+            filename
+        } else {
+            "${dir.absolutePath}/$filename"
+        }
+    }
+
+    private fun getCompressedFilePath(context: Context?): String {
+        val filename = "compressed.mp4"
+        val dir = context?.getExternalFilesDir(null)
+
+        return if (dir == null) {
+            filename
+        } else {
+            "${dir.absolutePath}/$filename"
+        }
+    }
+
+    private fun getLogFilePath(context: Context?): String {
+        val filename = "log"
         val dir = context?.getExternalFilesDir(null)
 
         return if (dir == null) {
@@ -572,8 +600,67 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
         }
 
         if (activity != null) showToast("Video saved: $nextVideoAbsolutePath")
+        Log.d(Config.TAG, "$nextVideoAbsolutePath")
+
+        // FFMPEG Stuff
+        val info = FFmpeg.getMediaInformation(nextVideoAbsolutePath)
+        printMediaInformation(info)
+
+        //FFmpeg.execute("-i $nextVideoAbsolutePath -c:v mpeg4 ${getTempFilePath(context)}")
+
+        // target output size is 550k convert bytes to bits
+        val target_size = 600 * 8
+
+        // total bitrate is target size divided by length in seconds
+        val totalBitrate = target_size / (info.duration / 1000.0f)
+        val audioBitrate = 16
+        val videoBitrate = totalBitrate - audioBitrate
+
+        FFmpeg.execute("-y -i $nextVideoAbsolutePath -c:v libx264 -b:v ${videoBitrate}k -pass 1 -passlogfile ${getLogFilePath(context)} -an -f mp4 /dev/null")
+
+        var rc = FFmpeg.getLastReturnCode()
+        var output = FFmpeg.getLastCommandOutput()
+
+        when (rc) {
+            FFmpeg.RETURN_CODE_SUCCESS -> {
+                Log.i(Config.TAG, "Command execution completed successfully.")
+                FFmpeg.execute("-i $nextVideoAbsolutePath -c:v libx264 -b:v ${videoBitrate}k -pass 2 -passlogfile ${getLogFilePath(context)} -c:a aac -b:a ${audioBitrate}k ${getCompressedFilePath(context)}")
+
+                rc = FFmpeg.getLastReturnCode()
+                output = FFmpeg.getLastCommandOutput()
+
+                when (rc) {
+                    FFmpeg.RETURN_CODE_SUCCESS -> {
+                        Log.i(Config.TAG, "Command execution completed successfully.")
+                    }
+                    FFmpeg.RETURN_CODE_CANCEL -> Log.i(Config.TAG, "Command execution cancelled by user.")
+                    else -> Log.i(
+                            Config.TAG,
+                            String.format("Command execution failed with rc=%d and output=%s.", rc, output)
+                    )
+                }
+            }
+            FFmpeg.RETURN_CODE_CANCEL -> Log.i(Config.TAG, "Command execution cancelled by user.")
+            else -> Log.i(
+                    Config.TAG,
+                    String.format("Command execution failed with rc=%d and output=%s.", rc, output)
+            )
+        }
+
         nextVideoAbsolutePath = null
         startPreview()
+    }
+
+    fun showPreview() {
+        activity?.startActivity(Intent(context, PreviewActivity::class.java))
+    }
+
+    fun printMediaInformation(info: MediaInformation) {
+        Log.v(Config.TAG, info.format)
+        Log.v(Config.TAG, info.path)
+        Log.v(Config.TAG, info.bitrate.toString())
+        Log.v(Config.TAG, info.duration.toString())
+        Log.v(Config.TAG, info.startTime.toString())
     }
 
     private fun showToast(message : String) = Toast.makeText(activity, message, LENGTH_SHORT).show()
