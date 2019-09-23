@@ -14,19 +14,40 @@ class PreviewActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_preview)
 
-        video_view.setMediaController(MediaController(this))
-        video_view.setVideoPath(getCompressedFilePath(this))
+        original_video_view.setMediaController(MediaController(this))
+        original_video_view.setVideoPath(getOriginalFilePath(this))
 
-        val info = FFmpeg.getMediaInformation(getCompressedFilePath(this))
-        val file = File(getCompressedFilePath(this))
+        val original_info = FFmpeg.getMediaInformation(getOriginalFilePath(this))
+        val original_file = File(getOriginalFilePath(this))
 
-        file_size.text = "${file.length() / 1024} kB"
-        bitrate.text = "${info.bitrate / 8} kBs"
-        length.text = "${info.duration / 1000} sec"
+        original_file_size.text = "${original_file.length() / 1024} kB"
+        original_bitrate.text = "${original_info.bitrate / 8} kBs"
+        original_length.text = "${original_info.duration / 1000} sec"
+
+        compressed_video_view.setMediaController(MediaController(this))
+        compressed_video_view.setVideoPath(getCompressedFilePath(this))
+
+        val compressed_info = FFmpeg.getMediaInformation(getCompressedFilePath(this))
+        val compressed_file = File(getCompressedFilePath(this))
+
+        compressed_file_size.text = "${compressed_file.length() / 1024} kB"
+        compressed_bitrate.text = "${compressed_info.bitrate / 8} kBs"
+        compressed_length.text = "${compressed_info.duration / 1000} sec"
     }
 
     private fun getCompressedFilePath(context: Context?): String {
         val filename = "compressed.mp4"
+        val dir = context?.getExternalFilesDir(null)
+
+        return if (dir == null) {
+            filename
+        } else {
+            "${dir.absolutePath}/$filename"
+        }
+    }
+
+    private fun getOriginalFilePath(context: Context?): String {
+        val filename = "original.mp4"
         val dir = context?.getExternalFilesDir(null)
 
         return if (dir == null) {

@@ -18,6 +18,7 @@ package com.example.android.camera2video
 
 import android.annotation.SuppressLint
 import android.app.AlertDialog
+import android.app.Dialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -58,6 +59,7 @@ import android.widget.Toast.LENGTH_SHORT
 import com.arthenica.mobileffmpeg.Config
 import com.arthenica.mobileffmpeg.FFmpeg
 import com.arthenica.mobileffmpeg.MediaInformation
+import kotlinx.coroutines.*
 import java.io.File
 import java.io.IOException
 import java.util.Collections
@@ -336,8 +338,8 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
 
             // Choose the sizes for camera preview and video recording
             val characteristics = manager.getCameraCharacteristics(cameraId)
-            val map = characteristics.get(SCALER_STREAM_CONFIGURATION_MAP) ?:
-                    throw RuntimeException("Cannot get available preview/video sizes")
+            val map = characteristics.get(SCALER_STREAM_CONFIGURATION_MAP)
+                    ?: throw RuntimeException("Cannot get available preview/video sizes")
             sensorOrientation = characteristics.get(SENSOR_ORIENTATION)
             videoSize = chooseVideoSize(map.getOutputSizes(MediaRecorder::class.java))
             previewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture::class.java),
@@ -488,7 +490,7 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
             setVideoSource(MediaRecorder.VideoSource.SURFACE)
             setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             setOutputFile(nextVideoAbsolutePath)
-            //setVideoEncodingBitRate(10000000) // 9mb/sec
+            setVideoEncodingBitRate(10000000) // 9mb/sec
             setVideoFrameRate(30)
             setMaxDuration(20 * 1000)
             setVideoSize(videoSize.width, videoSize.height)
@@ -564,20 +566,20 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
             cameraDevice?.createCaptureSession(surfaces,
                     object : CameraCaptureSession.StateCallback() {
 
-                override fun onConfigured(cameraCaptureSession: CameraCaptureSession) {
-                    captureSession = cameraCaptureSession
-                    updatePreview()
-                    activity?.runOnUiThread {
-                        videoButton.setText(R.string.stop)
-                        isRecordingVideo = true
-                        mediaRecorder?.start()
-                    }
-                }
+                        override fun onConfigured(cameraCaptureSession: CameraCaptureSession) {
+                            captureSession = cameraCaptureSession
+                            updatePreview()
+                            activity?.runOnUiThread {
+                                videoButton.setText(R.string.stop)
+                                isRecordingVideo = true
+                                mediaRecorder?.start()
+                            }
+                        }
 
-                override fun onConfigureFailed(cameraCaptureSession: CameraCaptureSession) {
-                    if (activity != null) showToast("Failed")
-                }
-            }, backgroundHandler)
+                        override fun onConfigureFailed(cameraCaptureSession: CameraCaptureSession) {
+                            if (activity != null) showToast("Failed")
+                        }
+                    }, backgroundHandler)
         } catch (e: CameraAccessException) {
             Log.e(TAG, e.toString())
         } catch (e: IOException) {
@@ -602,14 +604,29 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
         if (activity != null) showToast("Video saved: $nextVideoAbsolutePath")
         Log.d(Config.TAG, "$nextVideoAbsolutePath")
 
+        runEncode()
+
+        nextVideoAbsolutePath = null
+        startPreview()
+    }
+
+    private fun runEncode() {
+        val startTime = System.currentTimeMillis()
+        val dialogBuilder = AlertDialog.Builder(activity)
+        encode()
+
+        val completedDialog = dialogBuilder.setMessage("Completed in ${(System.currentTimeMillis() - startTime) / 1000.0f}s").create()
+        dialogBuilder.setCancelable(true)
+        completedDialog.show()
+    }
+
+    private fun encode() {
         // FFMPEG Stuff
         val info = FFmpeg.getMediaInformation(nextVideoAbsolutePath)
         printMediaInformation(info)
 
-        //FFmpeg.execute("-i $nextVideoAbsolutePath -c:v mpeg4 ${getTempFilePath(context)}")
-
-        // target output size is 550k convert bytes to bits
-        val target_size = 600 * 8
+        // target output size is 600k convert bytes to bits
+        val target_size = 585 * 8
 
         // total bitrate is target size divided by length in seconds
         val totalBitrate = target_size / (info.duration / 1000.0f)
@@ -632,12 +649,15 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
                 when (rc) {
                     FFmpeg.RETURN_CODE_SUCCESS -> {
                         Log.i(Config.TAG, "Command execution completed successfully.")
+
                     }
                     FFmpeg.RETURN_CODE_CANCEL -> Log.i(Config.TAG, "Command execution cancelled by user.")
-                    else -> Log.i(
-                            Config.TAG,
-                            String.format("Command execution failed with rc=%d and output=%s.", rc, output)
-                    )
+                    else -> {
+                        Log.i(
+                                Config.TAG,
+                                String.format("Command execution failed with rc=%d and output=%s.", rc, output)
+                        )
+                    }
                 }
             }
             FFmpeg.RETURN_CODE_CANCEL -> Log.i(Config.TAG, "Command execution cancelled by user.")
@@ -646,9 +666,6 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
                     String.format("Command execution failed with rc=%d and output=%s.", rc, output)
             )
         }
-
-        nextVideoAbsolutePath = null
-        startPreview()
     }
 
     fun showPreview() {
@@ -663,7 +680,7 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
         Log.v(Config.TAG, info.startTime.toString())
     }
 
-    private fun showToast(message : String) = Toast.makeText(activity, message, LENGTH_SHORT).show()
+    private fun showToast(message: String) = Toast.makeText(activity, message, LENGTH_SHORT).show()
 
     /**
      * In this sample, we choose a video size with 3x4 aspect ratio. Also, we don't use sizes
@@ -673,7 +690,8 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
      * @return The video size
      */
     private fun chooseVideoSize(choices: Array<Size>) = choices.firstOrNull {
-        it.width == it.height * 4 / 3 && it.width <= 1080 } ?: choices[choices.size - 1]
+        it.width == it.height * 4 / 3 && it.width <= 1080
+    } ?: choices[choices.size - 1]
 
     /**
      * Given [choices] of [Size]s supported by a camera, chooses the smallest one whose
@@ -697,7 +715,8 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
         val w = aspectRatio.width
         val h = aspectRatio.height
         val bigEnough = choices.filter {
-            it.height == it.width * h / w && it.width >= width && it.height >= height }
+            it.height == it.width * h / w && it.width >= width && it.height >= height
+        }
 
         // Pick the smallest of those, assuming we found any
         return if (bigEnough.isNotEmpty()) {
