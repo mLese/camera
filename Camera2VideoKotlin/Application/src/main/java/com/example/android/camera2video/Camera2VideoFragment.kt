@@ -690,7 +690,7 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
      * @return The video size
      */
     private fun chooseVideoSize(choices: Array<Size>) = choices.firstOrNull {
-        it.width == it.height * 4 / 3 && it.width <= 1080
+        it.width == it.height * 3 / 4 //&& it.width <= 1080
     } ?: choices[choices.size - 1]
 
     /**
