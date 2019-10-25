@@ -1,10 +1,12 @@
 package com.example.android.camera2video
 
 import android.content.Context
+import android.graphics.drawable.shapes.Shape
 import android.os.Handler
 import android.support.constraint.ConstraintLayout
 import android.util.AttributeSet
 import android.view.MotionEvent
+import kotlinx.android.synthetic.main.activity_capture_button_test.view.*
 import kotlinx.android.synthetic.main.record_button.view.*
 
 class RecordButton: ConstraintLayout {
@@ -20,6 +22,7 @@ class RecordButton: ConstraintLayout {
 
     init {
         inflate(context, R.layout.record_button, this)
+
         progressBar.setOnTouchListener { v, event ->
             when(event?.action) {
                 MotionEvent.ACTION_DOWN -> {

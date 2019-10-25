@@ -3,6 +3,7 @@
 
     <!-- Inner Circle -->
     <item
+        android:id="@+id/inner_circle"
         android:width="72dp"
         android:height="72dp"
         android:bottom="6dp"
@@ -11,7 +12,7 @@
         android:top="6dp"
         android:gravity="center">
         <shape android:shape="oval">
-            <solid android:color="@color/record_button_colors"/>
+            <solid android:color="#b888"/>
         </shape>
     </item>
 
@@ -22,11 +23,6 @@
             android:shape="ring"
             android:thickness="6dp"
             android:useLevel="false">
-            <!--
-            <size
-                android:width="64dp"
-                android:height="64dp" />
-                -->
             <solid android:color="#bccc" />
         </shape>
 
