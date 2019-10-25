@@ -3,31 +3,31 @@
 
     <!-- Inner Circle -->
     <item
-        android:width="76dp"
-        android:height="76dp"
+        android:width="72dp"
+        android:height="72dp"
         android:bottom="6dp"
         android:left="6dp"
         android:right="6dp"
         android:top="6dp"
         android:gravity="center">
         <shape android:shape="oval">
-            <solid android:color="#f888"/>
+            <solid android:color="@color/record_button_colors"/>
         </shape>
     </item>
 
     <!-- Ring -->
     <item>
         <shape
-            android:innerRadius="48dp"
+            android:innerRadius="37dp"
             android:shape="ring"
-            android:thickness="12dp"
+            android:thickness="6dp"
             android:useLevel="false">
             <!--
             <size
                 android:width="64dp"
                 android:height="64dp" />
                 -->
-            <solid android:color="#f666" />
+            <solid android:color="#bccc" />
         </shape>
 
     </item>

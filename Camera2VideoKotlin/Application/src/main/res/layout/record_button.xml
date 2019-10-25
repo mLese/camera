@@ -9,5 +9,7 @@
     android:progressDrawable="@drawable/circular_progress_bar"
     android:background="@drawable/circular_progress_background"
     style="?android:attr/progressBarStyleHorizontal"
-    android:max="100"
-    android:progress="80"/>
+    android:max="10000"
+    android:progress="0"
+    android:clickable="true"
+    android:focusable="true"/>
