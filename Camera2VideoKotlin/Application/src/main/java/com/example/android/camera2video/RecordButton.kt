@@ -23,22 +23,20 @@ class RecordButton: ConstraintLayout {
     init {
         inflate(context, R.layout.record_button, this)
 
-        progressBar.setOnTouchListener { v, event ->
-            when(event?.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    progressRunning = true
-                    handler.post(progressRunnable)
-                }
-                MotionEvent.ACTION_UP -> {
-                    progressRunning = false
-                    progressBar.progress = -1
-                }
+        progressBar.setOnClickListener { view ->
+            if (progressRunning) {
+                progressRunning = false
+                progressBar.background = view.context.getDrawable(R.drawable.circular_progress_background)
+                progressBar.progress = -1
+            } else {
+                progressRunning = true
+                progressBar.background = view.context.getDrawable(R.drawable.circular_progress_background_recording)
+                handler.post(progressRunnable)
             }
-            super.onTouchEvent(event)
         }
     }
 
-    val progressRunnable: Runnable = object: Runnable {
+    private val progressRunnable: Runnable = object: Runnable {
         override fun run() {
             progressBar.progress = progressBar.progress + interval
             if (progressBar.progress > maxProgress) progressRunning = false

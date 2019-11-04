@@ -206,21 +206,7 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         textureView = view.findViewById(R.id.texture)
-        videoButton = view.findViewById<RecordButton>(R.id.video).also {
-            it.setOnTouchListener { v, event ->
-                when(event?.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        Log.d("leseloggin", "startRecording")
-                        startRecordingVideo()
-                    }
-                    MotionEvent.ACTION_UP -> {
-                        Log.d("leseloggin", "stopRecording")
-                        stopRecordingVideo()
-                    }
-                }
-                true
-            }
-        }
+        videoButton = view.findViewById(R.id.video)
         view.findViewById<View>(R.id.preview).setOnClickListener(this)
     }
 
@@ -247,7 +233,7 @@ class Camera2VideoFragment : Fragment(), View.OnClickListener,
 
     override fun onClick(view: View) {
         when (view.id) {
-            //R.id.video -> if (isRecordingVideo) stopRecordingVideo() else startRecordingVideo()
+            R.id.video -> if (isRecordingVideo) stopRecordingVideo() else startRecordingVideo()
             R.id.preview -> if (!isRecordingVideo) showPreview()
         }
     }
